@@ -11,7 +11,14 @@ const ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
+      // Use cache.addAll but catch individual failures if any asset is missing
+      return Promise.all(
+        ASSETS.map((asset) => {
+          return cache.add(asset).catch((err) => {
+            console.warn(`Failed to cache asset: ${asset}`, err);
+          });
+        })
+      );
     })
   );
   self.skipWaiting();
@@ -33,17 +40,20 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
+  // Only handle GET requests and HTTP/HTTPS requests
+  if (event.request.method !== 'GET' || !event.request.url.startsWith('http')) {
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        return cachedResponse;
+      // Return cached response if found, otherwise perform a normal network fetch
+      return cachedResponse || fetch(event.request);
+    }).catch(() => {
+      // In case of complete network failure and no cache, if it's page navigation, return main page
+      if (event.request.mode === 'navigate') {
+        return caches.match('./index.html');
       }
-      return fetch(event.request).catch(() => {
-        // Fallback for offline if page request fails
-        if (event.request.mode === 'navigate') {
-          return caches.match('./index.html');
-        }
-      });
     })
   );
 });
