@@ -1,6 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
   const statusDot = document.getElementById("status-dot");
   const statusText = document.getElementById("status-text");
+  const laser = document.getElementById("laser");
 
   // Keep track of redirecting state to prevent multiple triggerings
   let isRedirecting = false;
@@ -17,7 +18,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  // Register service worker for installability
+  // Register service worker for PWA installability
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("./sw.js")
       .then((reg) => console.log("Service Worker registered successfully:", reg.scope))
@@ -29,35 +30,26 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const qrCodeSuccessCallback = (decodedText, decodedResult) => {
     if (isRedirecting) return;
-    
-    // Validate text
     if (!decodedText) return;
 
     isRedirecting = true;
     updateStatus("QR Detected! Redirecting...", "success");
 
-    // Check if it looks like a URL
     let targetUrl = decodedText.trim();
-    
-    // Quick regex to test if it's a URL
     const urlPattern = /^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([\/\w .-]*)*\/?/i;
     
     if (urlPattern.test(targetUrl)) {
-      // Ensure protocol is present
       if (!/^https?:\/\//i.test(targetUrl)) {
         targetUrl = "https://" + targetUrl;
       }
     } else {
-      // Fallback: If not a URL, open as Google search query
       targetUrl = `https://www.google.com/search?q=${encodeURIComponent(targetUrl)}`;
     }
 
-    // Stop scanner and redirect
     html5QrCode.stop().then(() => {
       window.location.href = targetUrl;
     }).catch((err) => {
       console.error("Failed to stop scanner", err);
-      // Redirect anyway
       window.location.href = targetUrl;
     });
   };
@@ -65,46 +57,67 @@ document.addEventListener("DOMContentLoaded", () => {
   const config = {
     fps: 15,
     qrbox: (width, height) => {
-      // Return a scan area matching our viewfinder
       const size = Math.min(width, height, 290);
       return { width: size, height: size };
     },
     aspectRatio: 1.0
   };
 
-  // Request camera list first (this triggers the native browser permission prompt)
-  updateStatus("Requesting camera access...", "searching");
-
-  Html5Qrcode.getCameras().then(devices => {
-    if (devices && devices.length > 0) {
-      // We have camera devices, try to start with environment/back camera first
-      html5QrCode.start(
-        { facingMode: "environment" },
-        config,
-        qrCodeSuccessCallback,
-        (errorMessage) => {}
-      ).then(() => {
-        updateStatus("Ready. Scan a QR code", "searching");
-      }).catch((err) => {
-        console.warn("Back camera failed, trying first available device", err);
-        // Fallback to first available camera device ID
-        html5QrCode.start(
-          devices[0].id,
-          config,
-          qrCodeSuccessCallback,
-          (errorMessage) => {}
-        ).then(() => {
-          updateStatus("Ready. Scan a QR code", "searching");
-        }).catch((fallbackErr) => {
-          console.error("Failed to start fallback camera ID", fallbackErr);
-          updateStatus("Camera initialization failed", "error");
-        });
+  function startScanner() {
+    updateStatus("Starting camera...", "searching");
+    
+    html5QrCode.start(
+      { facingMode: "environment" },
+      config,
+      qrCodeSuccessCallback,
+      (errorMessage) => {}
+    ).then(() => {
+      updateStatus("Ready. Scan a QR code", "searching");
+      if (laser) laser.style.display = "block"; // Show scanning animation once camera is active
+    }).catch((err) => {
+      console.warn("Back camera failed, trying first available device", err);
+      
+      // Fallback: try default/available camera
+      Html5Qrcode.getCameras().then(devices => {
+        if (devices && devices.length > 0) {
+          html5QrCode.start(
+            devices[0].id,
+            config,
+            qrCodeSuccessCallback,
+            (errorMessage) => {}
+          ).then(() => {
+            updateStatus("Ready. Scan a QR code (front camera)", "searching");
+            if (laser) laser.style.display = "block";
+          }).catch((fallbackErr) => {
+            updateStatus("Camera error: " + fallbackErr.message, "error");
+          });
+        } else {
+          updateStatus("No cameras found.", "error");
+        }
+      }).catch(camerError => {
+        updateStatus("Camera search error: " + camerError.message, "error");
       });
-    } else {
-      updateStatus("No cameras found on this device", "error");
-    }
-  }).catch(err => {
-    console.error("Error getting cameras / Permission denied", err);
-    updateStatus("Camera permission denied", "error");
-  });
+    });
+  }
+
+  // Trigger permission request using standard browser mediaDevices API
+  updateStatus("Requesting camera permission...", "searching");
+
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      .then((stream) => {
+        // Permission granted! Stop the temporary stream tracks
+        stream.getTracks().forEach(track => track.stop());
+        
+        // Start the actual scanner library
+        startScanner();
+      })
+      .catch((err) => {
+        console.error("Camera permission denied", err);
+        updateStatus("Permission denied. Enable camera in browser settings.", "error");
+      });
+  } else {
+    // Fallback if mediaDevices.getUserMedia is missing (e.g. non-secure context or older webview)
+    updateStatus("Camera API not supported or secure context (HTTPS) required.", "error");
+  }
 });
