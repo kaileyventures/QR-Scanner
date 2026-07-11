@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>QR Link Scanner</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="A simple, fast, and modern QR code link scanner. Scan any QR code and redirect to web pages instantly.">
+  
+  <!-- PWA & Mobile Optimization -->
+  <meta name="theme-color" content="#0d0e12">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="QR Scanner">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="icon.svg">
+  
+  <!-- Stylesheets -->
+  <link rel="stylesheet" href="style.css">
+  
+  <!-- html5-qrcode library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js" integrity="sha512-r6rDA7W6ZeQhvl8S7yRV0VUkyDcRLDKy/Gih/15isD6yQ07f3AcwJJCHz3k4gZlzI+/KEerYad2JIcA15RBYJg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+</head>
+<body>
+
+  <header>
+    <div class="logo-container">
+      <img src="https://res.cloudinary.com/dxojtisjb/image/upload/v1783747334/Untitled-1_hyjlof.png" alt="Logo">
+    </div>
+    <h1>QR Link Scanner</h1>
+  </header>
+
+  <main class="scanner-container">
+    <div class="scanner-viewfinder">
+      <!-- Html5Qrcode video target -->
+      <div id="reader"></div>
+      
+      <!-- Overlay decoration -->
+      <div class="viewfinder-overlay">
+        <div class="corner top-left"></div>
+        <div class="corner top-right"></div>
+        <div class="scan-laser"></div>
+        <div class="corner bottom-left"></div>
+        <div class="corner bottom-right"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <div class="status-badge" id="status-badge">
+      <div class="status-dot searching" id="status-dot"></div>
+      <span id="status-text">Starting Camera...</span>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
