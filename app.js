@@ -72,32 +72,39 @@ document.addEventListener("DOMContentLoaded", () => {
     aspectRatio: 1.0
   };
 
-  // Start scanning
+  // Request camera list first (this triggers the native browser permission prompt)
   updateStatus("Requesting camera access...", "searching");
-  
-  html5QrCode.start(
-    { facingMode: "environment" }, // Default to back camera
-    config,
-    qrCodeSuccessCallback,
-    (errorMessage) => {
-      // Verbose scanning logs can be ignored, just keep status active
+
+  Html5Qrcode.getCameras().then(devices => {
+    if (devices && devices.length > 0) {
+      // We have camera devices, try to start with environment/back camera first
+      html5QrCode.start(
+        { facingMode: "environment" },
+        config,
+        qrCodeSuccessCallback,
+        (errorMessage) => {}
+      ).then(() => {
+        updateStatus("Ready. Scan a QR code", "searching");
+      }).catch((err) => {
+        console.warn("Back camera failed, trying first available device", err);
+        // Fallback to first available camera device ID
+        html5QrCode.start(
+          devices[0].id,
+          config,
+          qrCodeSuccessCallback,
+          (errorMessage) => {}
+        ).then(() => {
+          updateStatus("Ready. Scan a QR code", "searching");
+        }).catch((fallbackErr) => {
+          console.error("Failed to start fallback camera ID", fallbackErr);
+          updateStatus("Camera initialization failed", "error");
+        });
+      });
+    } else {
+      updateStatus("No cameras found on this device", "error");
     }
-  ).then(() => {
-    updateStatus("Ready. Scan a QR code", "searching");
-  }).catch((err) => {
-    console.warn("Unable to start with back camera, trying default/available camera...", err);
-    
-    // Fallback: start with any available camera
-    html5QrCode.start(
-      { facingMode: "user" }, // Fallback to front camera or default
-      config,
-      qrCodeSuccessCallback,
-      (errorMessage) => {}
-    ).then(() => {
-      updateStatus("Ready. Scan a QR code", "searching");
-    }).catch((fallbackErr) => {
-      console.error("Camera start failed", fallbackErr);
-      updateStatus("Camera access denied or unavailable", "error");
-    });
+  }).catch(err => {
+    console.error("Error getting cameras / Permission denied", err);
+    updateStatus("Camera permission denied", "error");
   });
 });
